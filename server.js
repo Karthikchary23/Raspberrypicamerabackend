@@ -36,7 +36,7 @@ wss.on("connection", (ws) => {
         (c) => c.uniqueId === uniqueId || c.raspberrypiId === uniqueId
       );
       if (!customer) {
-        console.log("❌ Customer not found for ID:", uniqueId);
+        console.log("Customer not found for ID:", uniqueId);
         return;
       }
 
@@ -99,17 +99,43 @@ wss.on("connection", (ws) => {
     }
   });
 
-  ws.on("close", () => {
-    for (let id in connections) {
-      if (connections[id] === ws) {
-        clients.delete(id);
-        raspberryPis.delete(id);
-        delete connections[id];
-        console.log("❌ Disconnected:", id);
+//   ws.on("close", () => {
+//     for (let id in connections) {
+//       if (connections[id] === ws) {
+//         clients.delete(id);
+//         raspberryPis.delete(id);
+//         delete connections[id];
+//         console.log("❌ Disconnected:", id);
+//       }
+//     }
+//   });
+// });
+ws.on("close", () => {
+  for (let id in connections) {
+    if (connections[id] === ws) {
+      clients.delete(id);
+      raspberryPis.delete(id);
+      delete connections[id];
+      console.log("❌ Disconnected:", id);
+
+      // 🔹 If this client was controlling a Raspberry Pi, notify the Pi
+      for (let piId of raspberryPis) {
+        if (connections[piId]) {
+          try {
+            connections[piId].send(
+              JSON.stringify({ type: "disconnect", clientId: id })
+            );
+            console.log(`➡️ Sent disconnect to Pi: ${piId}`);
+          } catch (err) {
+            console.error(`⚠️ Error sending disconnect to Pi: ${piId}`, err);
+          }
+        }
       }
     }
-  });
+  }
 });
+});
+
 
 const interval = setInterval(() => {
   wss.clients.forEach((ws) => {
